@@ -31,16 +31,6 @@ public class JDBCConfigurationUnitTest {
   public ExpectedException expectedException = ExpectedException.none();
 
   @Test
-  public void testInvalidProperty() {
-    Properties props = new Properties();
-    props.setProperty("invalid", "");
-
-    expectedException.expect(IllegalArgumentException.class);
-    expectedException.expectMessage("unknown properties: [invalid]");
-    new JDBCConfiguration(props);
-  }
-
-  @Test
   public void testMissingAllRequiredProperties() {
     Properties props = new Properties();
     expectedException.expect(IllegalArgumentException.class);
@@ -99,27 +89,12 @@ public class JDBCConfigurationUnitTest {
   }
 
   @Test
-  public void testValueClassName() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("valueClassName", "myPackage.myDomainClass");
-    JDBCConfiguration config = new JDBCConfiguration(props);
-    assertThat(config.getValueClassName("foo")).isEqualTo("myPackage.myDomainClass");
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void verifyThatTwoClassNamesWithNoRegionNameThrows() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("valueClassName", "myClass1, myClass2");
-    new JDBCConfiguration(props);
-  }
-
-  @Test
   public void testValueClassNameWithRegionNames() {
     Properties props = new Properties();
     props.setProperty("url", "");
-    props.setProperty("valueClassName", "reg1:cn1   , reg2:pack2.cn2,myPackage.myDomainClass");
+    props.setProperty("valueClassName-reg1", "cn1");
+    props.setProperty("valueClassName-reg2", "pack2.cn2");
+    props.setProperty("valueClassName-foo", "myPackage.myDomainClass");
     JDBCConfiguration config = new JDBCConfiguration(props);
     assertThat(config.getValueClassName("foo")).isEqualTo("myPackage.myDomainClass");
     assertThat(config.getValueClassName("reg1")).isEqualTo("cn1");
@@ -134,57 +109,16 @@ public class JDBCConfigurationUnitTest {
     assertThat(config.getIsKeyPartOfValue("foo")).isEqualTo(false);
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void verifyThatTwoDefaultsKeyPartOfValueThrows() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("isKeyPartOfValue", "true, reg1:true   , reg2:false, true");
-    new JDBCConfiguration(props);
-  }
-
   @Test
   public void testIsKeyPartOfValueWithRegionNames() {
     Properties props = new Properties();
     props.setProperty("url", "");
-    props.setProperty("isKeyPartOfValue", "true, reg1:true   , reg2:false,");
+    props.setProperty("isKeyPartOfValue-reg1", "true");
+    props.setProperty("isKeyPartOfValue-reg2", "false");
     JDBCConfiguration config = new JDBCConfiguration(props);
-    assertThat(config.getIsKeyPartOfValue("foo")).isEqualTo(true);
-    assertThat(config.getIsKeyPartOfValue("reg1")).isEqualTo(true);
-    assertThat(config.getIsKeyPartOfValue("reg2")).isEqualTo(false);
-  }
-
-  @Test
-  public void testIsKeyPartOfValueWithjdbcSeparator() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("isKeyPartOfValue", "true, reg1->true   , reg2->false");
-    JDBCConfiguration config = new TestableJDBCConfiguration(props);
-    assertThat(config.getIsKeyPartOfValue("foo")).isEqualTo(true);
-    assertThat(config.getIsKeyPartOfValue("reg1")).isEqualTo(true);
-    assertThat(config.getIsKeyPartOfValue("reg2")).isEqualTo(false);
-  }
-
-
-  @Test
-  public void testIsKeyPartOfValueWithjdbcSeparatorNoDefaultValue() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("isKeyPartOfValue", "reg1->true,reg2->false");
-    JDBCConfiguration config = new TestableJDBCConfiguration(props);
     assertThat(config.getIsKeyPartOfValue("foo")).isEqualTo(false);
     assertThat(config.getIsKeyPartOfValue("reg1")).isEqualTo(true);
     assertThat(config.getIsKeyPartOfValue("reg2")).isEqualTo(false);
-  }
-
-  public static class TestableJDBCConfiguration extends JDBCConfiguration {
-    public TestableJDBCConfiguration(Properties configProps) {
-      super(configProps);
-    }
-
-    @Override
-    protected String getjdbcSeparator() {
-      return "->";
-    }
   }
 
   @Test
@@ -199,35 +133,11 @@ public class JDBCConfigurationUnitTest {
   public void testRegionToTableMap() {
     Properties props = new Properties();
     props.setProperty("url", "");
-    props.setProperty("regionToTable", "reg1:table1");
-    JDBCConfiguration config = new JDBCConfiguration(props);
-    assertThat(config.getTableForRegion("reg1")).isEqualTo("table1");
-  }
-
-  @Test
-  public void testRegionsToTablesMap() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("regionToTable", "reg1:table1, reg2:table2");
+    props.setProperty("regionToTable-reg1", "table1");
+    props.setProperty("regionToTable-reg2", "table2");
     JDBCConfiguration config = new JDBCConfiguration(props);
     assertThat(config.getTableForRegion("reg1")).isEqualTo("table1");
     assertThat(config.getTableForRegion("reg2")).isEqualTo("table2");
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void verifyRegionToTableThrows() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("regionToTable", "reg1:table1, reg2:table2, reg3");
-    new JDBCConfiguration(props);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void verifyDuplicateRegionToTableThrows() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("regionToTable", "reg1:table1, reg2:table2, reg2:table3");
-    new JDBCConfiguration(props);
   }
 
   @Test
@@ -274,14 +184,6 @@ public class JDBCConfigurationUnitTest {
     Properties props = new Properties();
     props.setProperty("url", "");
     props.setProperty("fieldToColumn", "reg1:field1:column1, reg1:field1:column2");
-    new JDBCConfiguration(props);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void verifyFieldToColumnRequiresSeparator() {
-    Properties props = new Properties();
-    props.setProperty("url", "");
-    props.setProperty("regionToTable", "reg1:table1, reg2:table2, noSeparator");
     new JDBCConfiguration(props);
   }
 }

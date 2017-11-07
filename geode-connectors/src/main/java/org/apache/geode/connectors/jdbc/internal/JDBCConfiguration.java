@@ -18,15 +18,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.function.Function;
-import java.util.function.IntPredicate;
 
 public class JDBCConfiguration {
+  private static final boolean DEFAULT_KEY_IN_VALUE = false; //TODO: determine what default is
   private static final String URL = "url";
   private static final String USER = "user";
   private static final String PASSWORD = "password";
@@ -61,81 +59,27 @@ public class JDBCConfiguration {
    */
   private static final String FIELD_TO_COLUMN = "fieldToColumn";
 
-  private static final List<String> knownProperties =
-      Collections.unmodifiableList(Arrays.asList(URL, USER, PASSWORD, VALUE_CLASS_NAME,
-          IS_KEY_PART_OF_VALUE, REGION_TO_TABLE, FIELD_TO_COLUMN));
-
   private static final List<String> requiredProperties =
       Collections.unmodifiableList(Arrays.asList(URL));
 
   private final String url;
   private final String user;
   private final String password;
-  private final String valueClassNameDefault;
   private final Map<String, String> regionToClassMap;
-  private final boolean keyPartOfValueDefault;
   private final Map<String, Boolean> keyPartOfValueMap;
   private final Map<String, String> regionToTableMap;
   private final Map<RegionField, String> fieldToColumnMap;
 
   public JDBCConfiguration(Properties configProps) {
-    validateKnownProperties(configProps);
     validateRequiredProperties(configProps);
     this.url = configProps.getProperty(URL);
     this.user = configProps.getProperty(USER);
     this.password = configProps.getProperty(PASSWORD);
-    String valueClassNameProp = configProps.getProperty(VALUE_CLASS_NAME);
-    this.valueClassNameDefault = computeDefaultValueClassName(valueClassNameProp);
-    this.regionToClassMap = computeRegionToClassMap(valueClassNameProp);
-    String keyPartOfValueProp = configProps.getProperty(IS_KEY_PART_OF_VALUE);
-    this.keyPartOfValueDefault = computeDefaultKeyPartOfValue(keyPartOfValueProp);
-    this.keyPartOfValueMap = computeKeyPartOfValueMap(keyPartOfValueProp);
-    this.regionToTableMap = computeRegionToTableMap(configProps.getProperty(REGION_TO_TABLE));
+    JDBCPropertyParser parser = new JDBCPropertyParser(configProps);
+    this.regionToClassMap = parser.getPropertiesMap(VALUE_CLASS_NAME, v -> v);
+    this.keyPartOfValueMap = parser.getPropertiesMap(IS_KEY_PART_OF_VALUE, Boolean::parseBoolean);
+    this.regionToTableMap = parser.getPropertiesMap(REGION_TO_TABLE, v -> v);
     this.fieldToColumnMap = computeFieldToColumnMap(configProps.getProperty(FIELD_TO_COLUMN));
-  }
-
-  public static class RegionField {
-    private final String regionName; // may be null
-    private final String fieldName;
-
-    public RegionField(String regionName, String fieldName) {
-      this.regionName = regionName;
-      this.fieldName = fieldName;
-    }
-
-    @Override
-    public int hashCode() {
-      final int prime = 31;
-      int result = 1;
-      result = prime * result + fieldName.hashCode();
-      result = prime * result + ((regionName == null) ? 0 : regionName.hashCode());
-      return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (obj == null) {
-        return false;
-      }
-      if (getClass() != obj.getClass()) {
-        return false;
-      }
-      RegionField other = (RegionField) obj;
-      if (!fieldName.equals(other.fieldName)) {
-        return false;
-      }
-      if (regionName == null) {
-        if (other.regionName != null) {
-          return false;
-        }
-      } else if (!regionName.equals(other.regionName)) {
-        return false;
-      }
-      return true;
-    }
   }
 
   private Map<RegionField, String> computeFieldToColumnMap(String prop) {
@@ -155,26 +99,6 @@ public class JDBCConfiguration {
       }
     };
     return parseMap(prop, regionFieldParser, v -> v, true);
-  }
-
-  private Map<String, String> computeRegionToTableMap(String prop) {
-    return parseMap(prop, k -> k, v -> v, true);
-  }
-
-  private String computeDefaultValueClassName(String valueClassNameProp) {
-    return parseDefault(VALUE_CLASS_NAME, valueClassNameProp, v -> v, null);
-  }
-
-  private Map<String, String> computeRegionToClassMap(String valueClassNameProp) {
-    return parseMap(valueClassNameProp, k -> k, v -> v, false);
-  }
-
-  private boolean computeDefaultKeyPartOfValue(String keyPartOfValueProp) {
-    return parseDefault(IS_KEY_PART_OF_VALUE, keyPartOfValueProp, Boolean::parseBoolean, false);
-  }
-
-  private Map<String, Boolean> computeKeyPartOfValueMap(String keyPartOfValueProp) {
-    return parseMap(keyPartOfValueProp, k -> k, Boolean::parseBoolean, false);
   }
 
   private <K, V> Map<K, V> parseMap(String propertyValue, Function<String, K> keyParser,
@@ -203,87 +127,41 @@ public class JDBCConfiguration {
     return result;
   }
 
-  private <V> V parseDefault(String propertyName, String propertyValue, Function<String, V> parser,
-      V defaultValue) {
-    if (propertyValue == null) {
-      return defaultValue;
-    }
-    V result = null;
-    List<String> items = Arrays.asList(propertyValue.split("\\s*,\\s*"));
-    for (String item : items) {
-      int idx = item.indexOf(getjdbcSeparator());
-      if (idx != -1) {
-        continue;
-      }
-      if (result != null) {
-        throw new IllegalArgumentException(propertyName
-            + " can have at most one item that does not have a " + getjdbcSeparator() + " in it.");
-      }
-      result = parser.apply(item);
-    }
-    if (result == null) {
-      result = defaultValue;
-    }
-    return result;
-  }
-
-
-  private void validateKnownProperties(Properties configProps) {
-    Set<Object> keys = new HashSet<>(configProps.keySet());
-    keys.removeAll(knownProperties);
-    if (!keys.isEmpty()) {
-      throw new IllegalArgumentException("unknown properties: " + keys);
-    }
-  }
-
   private void validateRequiredProperties(Properties configProps) {
     List<String> reqKeys = new ArrayList<>(requiredProperties);
-    reqKeys.removeAll(configProps.keySet());
+    reqKeys.removeAll(configProps.stringPropertyNames());
     if (!reqKeys.isEmpty()) {
       Collections.sort(reqKeys);
       throw new IllegalArgumentException("missing required properties: " + reqKeys);
     }
   }
 
-  public String getURL() {
+  String getURL() {
     return this.url;
   }
 
-  public String getUser() {
+  String getUser() {
     return this.user;
   }
 
-  public String getPassword() {
+  String getPassword() {
     return this.password;
   }
 
-  public String getValueClassName(String regionName) {
-    if (this.regionToClassMap == null) {
-      return this.valueClassNameDefault;
-    }
-    String result = this.regionToClassMap.get(regionName);
-    if (result == null) {
-      result = this.valueClassNameDefault;
-    }
-    return result;
+  String getValueClassName(String regionName) {
+    return regionToClassMap.get(regionName);
   }
 
-  public boolean getIsKeyPartOfValue(String regionName) {
-    if (this.keyPartOfValueMap == null) {
-      return this.keyPartOfValueDefault;
-    }
+  boolean getIsKeyPartOfValue(String regionName) {
     Boolean result = this.keyPartOfValueMap.get(regionName);
-    if (result == null) {
-      return this.keyPartOfValueDefault;
-    }
-    return result;
+    return result != null ? result : DEFAULT_KEY_IN_VALUE;
   }
 
-  protected String getjdbcSeparator() {
+  String getjdbcSeparator() {
     return JDBC_SEPARATOR;
   }
 
-  public String getTableForRegion(String regionName) {
+  String getTableForRegion(String regionName) {
     if (this.regionToTableMap == null) {
       return regionName;
     }
@@ -294,7 +172,7 @@ public class JDBCConfiguration {
     return result;
   }
 
-  public String getColumnForRegionField(String regionName, String fieldName) {
+  String getColumnForRegionField(String regionName, String fieldName) {
     if (this.fieldToColumnMap == null) {
       return fieldName;
     }
@@ -309,4 +187,40 @@ public class JDBCConfiguration {
     }
     return result;
   }
+
+  public static class RegionField {
+    private final String regionName; // may be null
+    private final String fieldName;
+
+    public RegionField(String regionName, String fieldName) {
+      this.regionName = regionName;
+      this.fieldName = fieldName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      RegionField that = (RegionField) o;
+
+      if (regionName != null ? !regionName.equals(that.regionName) : that.regionName != null) {
+        return false;
+      }
+      return fieldName.equals(that.fieldName);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = regionName != null ? regionName.hashCode() : 0;
+      result = 31 * result + fieldName.hashCode();
+      return result;
+    }
+  }
+
 }
+

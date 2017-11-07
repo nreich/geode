@@ -286,29 +286,31 @@ public class JDBCManager {
     }
 
     @Override
-    public int hashCode() {
-      return operation.hashCode() + pdxTypeId + tableName.hashCode();
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      StatementKey that = (StatementKey) o;
+
+      if (pdxTypeId != that.pdxTypeId) {
+        return false;
+      }
+      if (operation != null ? !operation.equals(that.operation) : that.operation != null) {
+        return false;
+      }
+      return tableName != null ? tableName.equals(that.tableName) : that.tableName == null;
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (obj == null) {
-        return false;
-      }
-      StatementKey other = (StatementKey) obj;
-      if (!operation.equals(other.operation)) {
-        return false;
-      }
-      if (pdxTypeId != other.pdxTypeId) {
-        return false;
-      }
-      if (!tableName.equals(other.tableName)) {
-        return false;
-      }
-      return true;
+    public int hashCode() {
+      int result = pdxTypeId;
+      result = 31 * result + (operation != null ? operation.hashCode() : 0);
+      result = 31 * result + (tableName != null ? tableName.hashCode() : 0);
+      return result;
     }
   }
 

@@ -557,7 +557,7 @@ public class JDBCManagerUnitTest {
 
   @Test
   public void verifyReadWithValueClassName() throws SQLException {
-    createManager("valueClassName", regionName + ":myValueClass");
+    createManager("valueClassName-" + regionName, "myValueClass");
     GemFireCacheImpl cache = Fakes.cache();
     PdxInstanceFactory factory = mock(PdxInstanceFactory.class);
     PdxInstance pi = mock(PdxInstance.class);
@@ -586,7 +586,7 @@ public class JDBCManagerUnitTest {
 
   @Test
   public void verifyReadWithKeyPartOfValue() throws SQLException {
-    createManager("isKeyPartOfValue", "true");
+    createManager("isKeyPartOfValue-" + regionName, "true");
     GemFireCacheImpl cache = Fakes.cache();
     PdxInstanceFactory factory = mock(PdxInstanceFactory.class);
     PdxInstance pi = mock(PdxInstance.class);
@@ -616,7 +616,7 @@ public class JDBCManagerUnitTest {
   @Test
   public void verifyRegionToTable() throws SQLException {
     String tableName = "mySqlTable";
-    createManagerWithTableName(tableName, "regionToTable", regionName + ":" + tableName);
+    createManagerWithTableName(tableName, "regionToTable-" + regionName, tableName);
     GemFireCacheImpl cache = Fakes.cache();
     PdxInstanceFactory factory = mock(PdxInstanceFactory.class);
     PdxInstance pi = mock(PdxInstance.class);
