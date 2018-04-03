@@ -112,10 +112,9 @@ public abstract class JdbcDistributedTest implements Serializable {
       throws SQLException;
 
   private void insertNullDataForAllSupportedFieldsTable(String key) throws SQLException {
-    Connection connection = DriverManager.getConnection(connectionUrl);
+    Connection connection = getConnection();
 
     String insertQuery = "Insert into " + TABLE_NAME + " values (" + "?,?,?,?,?,?,?,?,?,?,?,?,?)";
-    System.out.println("### Query is :" + insertQuery);
     PreparedStatement statement = connection.prepareStatement(insertQuery);
     createNullStatement(key, statement);
 
@@ -127,7 +126,7 @@ public abstract class JdbcDistributedTest implements Serializable {
 
   private void insertDataForAllSupportedFieldsTable(String key, ClassWithSupportedPdxFields data)
       throws SQLException {
-    Connection connection = DriverManager.getConnection(connectionUrl);
+    Connection connection = getConnection();
 
     String insertQuery = "Insert into " + TABLE_NAME + " values (" + "?,?,?,?,?,?,?,?,?,?,?,?,?)";
     System.out.println("### Query is :" + insertQuery);
@@ -155,7 +154,7 @@ public abstract class JdbcDistributedTest implements Serializable {
   }
 
   private void closeDB() throws SQLException {
-    try (Connection connection = DriverManager.getConnection(connectionUrl)) {
+    try (Connection connection = getConnection()) {
       try (Statement statement = connection.createStatement()) {
         try {
           statement.execute("Drop table " + TABLE_NAME);
@@ -243,12 +242,10 @@ public abstract class JdbcDistributedTest implements Serializable {
   @Test
   public void verifyDateToDate() throws Exception {
     server = startupRule.startServerVM(1, x -> x.withConnectionToLocator(locator.getPort()));
-    server.invoke(() -> {
-      Connection connection = DriverManager.getConnection(connectionUrl);
+      Connection connection = getConnection();
       Statement statement = connection.createStatement();
       statement.execute(
           "Create Table " + TABLE_NAME + " (id varchar(10) primary key not null, mydate date)");
-    });
     createRegionUsingGfsh(true, false, true);
     createJdbcConnection();
     createMapping(REGION_NAME, CONNECTION_NAME);
@@ -278,12 +275,10 @@ public abstract class JdbcDistributedTest implements Serializable {
   @Test
   public void verifyDateToTime() throws Exception {
     server = startupRule.startServerVM(1, x -> x.withConnectionToLocator(locator.getPort()));
-    server.invoke(() -> {
-      Connection connection = DriverManager.getConnection(connectionUrl);
+      Connection connection = getConnection();
       Statement statement = connection.createStatement();
       statement.execute(
           "Create Table " + TABLE_NAME + " (id varchar(10) primary key not null, mytime time)");
-    });
     createRegionUsingGfsh(true, false, true);
     createJdbcConnection();
     createMapping(REGION_NAME, CONNECTION_NAME);
@@ -313,7 +308,7 @@ public abstract class JdbcDistributedTest implements Serializable {
   @Test
   public void verifyDateToTimestamp() throws Exception {
     server = startupRule.startServerVM(1, x -> x.withConnectionToLocator(locator.getPort()));
-    createTableWithTimeStamp(server, connectionUrl, TABLE_NAME);
+    createTableWithTimeStamp(TABLE_NAME);
 
     createRegionUsingGfsh(true, false, true);
     createJdbcConnection();
@@ -341,13 +336,12 @@ public abstract class JdbcDistributedTest implements Serializable {
     });
   }
 
-  protected void createTableWithTimeStamp(MemberVM vm, String connectionUrl, String tableName) {
-    vm.invoke(() -> {
-      Connection connection = DriverManager.getConnection(connectionUrl);
+  protected void createTableWithTimeStamp(String tableName)
+      throws SQLException {
+      Connection connection = getConnection();
       Statement statement = connection.createStatement();
       statement.execute("Create Table " + tableName
           + " (id varchar(10) primary key not null, mytimestamp timestamp)");
-    });
   }
 
   @Test
@@ -356,6 +350,7 @@ public abstract class JdbcDistributedTest implements Serializable {
     createRegionUsingGfsh(true, false, false);
     createJdbcConnection();
     createMapping(REGION_NAME, CONNECTION_NAME);
+    String url = connectionUrl;
     server.invoke(() -> {
       PdxInstance pdxEmployee1 =
           ClusterStartupRule.getCache().createPdxInstanceFactory(Employee.class.getName())
@@ -363,7 +358,7 @@ public abstract class JdbcDistributedTest implements Serializable {
 
       String key = "emp1";
       ClusterStartupRule.getCache().getRegion(REGION_NAME).put(key, pdxEmployee1);
-      assertTableHasEmployeeData(1, pdxEmployee1, key);
+      assertTableHasEmployeeData(url, 1, pdxEmployee1, key);
     });
   }
 
@@ -373,6 +368,7 @@ public abstract class JdbcDistributedTest implements Serializable {
     createRegionUsingGfsh(true, false, false);
     createJdbcConnection();
     createMapping(REGION_NAME, CONNECTION_NAME);
+    String url = connectionUrl;
     server.invoke(() -> {
       PdxInstance pdxEmployee1 =
           ClusterStartupRule.getCache().createPdxInstanceFactory(Employee.class.getName())
@@ -380,7 +376,7 @@ public abstract class JdbcDistributedTest implements Serializable {
 
       String key = "emp1";
       ClusterStartupRule.getCache().getRegion(REGION_NAME).put(key, pdxEmployee1);
-      assertTableHasEmployeeData(1, pdxEmployee1, key);
+      assertTableHasEmployeeData(url,1, pdxEmployee1, key);
     });
   }
 
@@ -502,7 +498,6 @@ public abstract class JdbcDistributedTest implements Serializable {
   }
 
   @Test
-  @Ignore("GEODE-4833: Postgres does not support UTF-8 null character as contents of a string")
   public void clientPutsAndGetsWithNullFieldsWithPdxClassName() throws Exception {
     createTableForAllSupportedFields();
     ClientVM client = getClientVM();
@@ -536,9 +531,7 @@ public abstract class JdbcDistributedTest implements Serializable {
     ClassWithSupportedPdxFields value = new ClassWithSupportedPdxFields(true, (byte) 1, (short) 2,
         3, 4, 5.5f, 6.0, "BigEmp", new Date(0), "BigEmpObject", new byte[] {1, 2}, 'c');
 
-    server.invoke(() -> {
-      insertDataForAllSupportedFieldsTable(key, value);
-    });
+    insertDataForAllSupportedFieldsTable(key, value);
 
     client.invoke(() -> {
       ClusterStartupRule.getClientCache().registerPdxMetaData(new ClassWithSupportedPdxFields());
@@ -563,9 +556,7 @@ public abstract class JdbcDistributedTest implements Serializable {
     String key = "id1";
     ClassWithSupportedPdxFields value = new ClassWithSupportedPdxFields();
 
-    server.invoke(() -> {
-      insertNullDataForAllSupportedFieldsTable(key);
-    });
+    insertNullDataForAllSupportedFieldsTable(key);
 
     client.invoke(() -> {
       ClusterStartupRule.getClientCache().registerPdxMetaData(new ClassWithSupportedPdxFields());
@@ -642,7 +633,7 @@ public abstract class JdbcDistributedTest implements Serializable {
     gfsh.executeAndAssertThat(commandStr).statusIsSuccess();
   }
 
-  private void assertTableHasEmployeeData(int size, PdxInstance employee, String key)
+  private void assertTableHasEmployeeData(String connectionUrl, int size, PdxInstance employee, String key)
       throws SQLException {
     Connection connection = DriverManager.getConnection(connectionUrl);
     Statement statement = connection.createStatement();

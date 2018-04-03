@@ -38,7 +38,7 @@ public class MySqlConnectionRule extends SqlDatabaseConnectionRule {
 
   @Override
   public Connection getConnection() throws SQLException {
-    Awaitility.await().ignoreExceptions().atMost(10, TimeUnit.SECONDS)
+    Awaitility.await().ignoreExceptions().atMost(30, TimeUnit.SECONDS)
         .until(matches(() -> DriverManager.getConnection(getCreateDbConnectionUrl())));
     String dbName = getDbName();
     if (dbName != null) {

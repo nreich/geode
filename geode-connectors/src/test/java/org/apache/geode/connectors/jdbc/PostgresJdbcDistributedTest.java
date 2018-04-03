@@ -43,6 +43,7 @@ public class PostgresJdbcDistributedTest extends JdbcDistributedTest {
 
   private static SqlDatabaseConnectionRule createConnectionRule() {
     try {
+      LogService.getLogger().info("RESOURCE PATH = " + COMPOSE_RESOURCE_PATH.getPath());
       return new PostgresConnectionRule.Builder().file(COMPOSE_RESOURCE_PATH.getPath())
           .serviceName("db").port(5432).database(DB_NAME).build();
     } catch (IllegalStateException e) {

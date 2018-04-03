@@ -25,6 +25,7 @@ import java.sql.Types;
 import org.junit.ClassRule;
 import org.junit.experimental.categories.Category;
 
+import org.apache.geode.internal.logging.LogService;
 import org.apache.geode.test.dunit.rules.MemberVM;
 import org.apache.geode.test.junit.categories.DistributedTest;
 import org.apache.geode.test.junit.rules.MySqlConnectionRule;
@@ -44,9 +45,11 @@ public class MySqlJdbcDistributedTest extends JdbcDistributedTest {
 
   private static SqlDatabaseConnectionRule createConnectionRule() {
     try {
+      LogService.getLogger().info("RESOURCE PATH = " + COMPOSE_RESOURCE_PATH.getPath());
       return new MySqlConnectionRule.Builder().file(COMPOSE_RESOURCE_PATH.getPath())
           .serviceName("db").port(3306).database(DB_NAME).build();
     } catch (IllegalStateException e) {
+      LogService.getLogger().error(e);
       return null;
     }
   }
@@ -89,12 +92,12 @@ public class MySqlJdbcDistributedTest extends JdbcDistributedTest {
   }
 
   @Override
-  protected void createTableWithTimeStamp(MemberVM vm, String connectionUrl, String tableName) {
-    vm.invoke(() -> {
-      Connection connection = DriverManager.getConnection(connectionUrl);
-      Statement statement = connection.createStatement();
-      statement.execute("CREATE TABLE " + tableName
-          + " (id varchar(10) primary key not null, mytimestamp timestamp(3))");
-    });
+  protected void createTableWithTimeStamp(String tableName)
+      throws SQLException {
+    Connection connection = getConnection();
+    Statement statement = connection.createStatement();
+    statement.execute("CREATE TABLE " + tableName
+        + " (id varchar(10) primary key not null, mytimestamp timestamp(3))");
+
   }
 }
