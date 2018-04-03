@@ -24,6 +24,7 @@ import java.sql.Types;
 import org.junit.ClassRule;
 import org.junit.experimental.categories.Category;
 
+import org.apache.geode.internal.logging.LogService;
 import org.apache.geode.test.junit.categories.DistributedTest;
 import org.apache.geode.test.junit.rules.PostgresConnectionRule;
 import org.apache.geode.test.junit.rules.SqlDatabaseConnectionRule;
@@ -45,6 +46,7 @@ public class PostgresJdbcDistributedTest extends JdbcDistributedTest {
       return new PostgresConnectionRule.Builder().file(COMPOSE_RESOURCE_PATH.getPath())
           .serviceName("db").port(5432).database(DB_NAME).build();
     } catch (IllegalStateException e) {
+      LogService.getLogger().error(e);
       return null;
     }
   }
